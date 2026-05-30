@@ -1,0 +1,115 @@
+# Default values for the production-microservice chart.
+# Override per-environment with `-f values-<env>.yaml` or `--set`.
+
+replicaCount: 3
+
+image:
+  repository: registry.smaitic.com/platform/production-microservice
+  tag: ""              # defaults to .Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: jarvis-artifactory   # pull creds for the private artifact registry
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  # For EKS IRSA, set the IAM role ARN to grant fine-grained AWS access:
+  annotations: {}
+    # eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/production-microservice
+
+# Application port. The container port is intentionally named `api-web`
+# (instead of the conventional `http`/`web`) per the assignment requirement.
+containerPortName: api-web
+containerPort: 3000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: api-web   # references the named container port above
+
+ingress:
+  enabled: true
+  className: alb        # AWS Load Balancer Controller
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+  hosts:
+    - host: api.smaitic.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - api.smaitic.com
+      secretName: production-microservice-tls
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Liveness/readiness probes hit the app's health endpoints.
+probes:
+  liveness:
+    path: /healthz
+  readiness:
+    path: /readyz
+
+# Pod-level hardening (defense in depth; image already runs as non-root).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Environment variables injected into the container.
+env:
+  LOG_LEVEL: info
+  SERVICE_NAME: production-microservice
+
+# Prometheus Operator ServiceMonitor.
+metrics:
+  enabled: true
+  path: /metrics
+  interval: 30s
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Spread pods across nodes/AZs for resilience.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: production-microservice

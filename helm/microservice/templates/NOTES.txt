@@ -1,0 +1,18 @@
+{{ include "microservice.fullname" . }} deployed.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Image:     {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+
+Check rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "microservice.fullname" . }}
+
+{{- if .Values.ingress.enabled }}
+Reach the service at:
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}
+{{- end }}
+{{- else }}
+Port-forward to test locally:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "microservice.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}

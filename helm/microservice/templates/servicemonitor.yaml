@@ -1,0 +1,18 @@
+{{- if .Values.metrics.enabled -}}
+# Requires the Prometheus Operator (kube-prometheus-stack) CRDs.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "microservice.fullname" . }}
+  labels:
+    {{- include "microservice.labels" . | nindent 4 }}
+    release: prometheus   # match the Prometheus Operator's serviceMonitorSelector
+spec:
+  selector:
+    matchLabels:
+      {{- include "microservice.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: {{ .Values.containerPortName }}
+      path: {{ .Values.metrics.path }}
+      interval: {{ .Values.metrics.interval }}
+{{- end }}

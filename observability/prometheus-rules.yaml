@@ -1,0 +1,55 @@
+# PrometheusRule CRD (Prometheus Operator). Alerts for the microservice.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: production-microservice-rules
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: production-microservice.slos
+      rules:
+        - alert: MicroserviceHighErrorRate
+          expr: |
+            sum(rate(http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+              /
+            sum(rate(http_request_duration_seconds_count[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High 5xx error rate (>5%)"
+            description: "The service is returning more than 5% 5xx responses over 10m."
+
+        - alert: MicroserviceHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "p95 latency above 500ms"
+            description: "95th percentile request latency has exceeded 500ms for 10m."
+
+        - alert: MicroservicePodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="production",
+              pod=~"production-microservice.*"}[15m]) > 3
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod is crash-looping"
+            description: "A production-microservice pod has restarted more than 3 times in 15m."
+
+        - alert: MicroserviceNoReadyReplicas
+          expr: |
+            kube_deployment_status_replicas_available{namespace="production",
+              deployment="production-microservice"} < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "No available replicas"
+            description: "The deployment has zero available replicas for 5m."

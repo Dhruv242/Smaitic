@@ -1,0 +1,39 @@
+# Helm values for elastic/filebeat (DaemonSet) on EKS.
+# Tails container stdout/stderr from every node and forwards to Logstash.
+#   helm repo add elastic https://helm.elastic.co
+#   helm install filebeat elastic/filebeat -n logging -f observability/filebeat-values.yaml
+
+daemonset:
+  filebeatConfig:
+    filebeat.yml: |
+      filebeat.autodiscover:
+        providers:
+          - type: kubernetes
+            node: ${NODE_NAME}
+            hints.enabled: true
+            templates:
+              - condition:
+                  equals:
+                    kubernetes.namespace: production
+                config:
+                  - type: container
+                    paths:
+                      - /var/log/containers/*${data.kubernetes.container.id}.log
+
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+              - logs_path:
+                  logs_path: "/var/log/containers/"
+
+      output.logstash:
+        hosts: ["logstash-logstash.logging.svc.cluster.local:5044"]
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 100Mi
+  limits:
+    cpu: 200m
+    memory: 200Mi

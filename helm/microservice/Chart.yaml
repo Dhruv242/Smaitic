@@ -1,0 +1,9 @@
+apiVersion: v2
+name: production-microservice
+description: Helm chart for a stateless Node.js API on AWS EKS
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Platform Engineering
+    email: info@smaitic.com
