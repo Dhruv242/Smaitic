@@ -148,4 +148,4 @@ helm install filebeat elastic/filebeat -n logging -f observability/filebeat-valu
 - [x] Jenkinsfile exposes the **`jarvis-artifactory`** credential to the artifact registry.
 - [x] Helm chart includes Deployment, Service, and Ingress (plus HPA, PDB, ServiceAccount, ConfigMap, ServiceMonitor).
 - [x] Only one deployment format submitted (Helm).
-# Smaitic
+
